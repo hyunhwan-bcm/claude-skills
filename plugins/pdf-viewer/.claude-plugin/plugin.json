@@ -1,0 +1,8 @@
+{
+  "name": "pdf-viewer",
+  "description": "Publish a PDF (slides, a paper, a report) as a claude.ai Artifact page drawn with PDF.js: page by page, section jumps from bookmarks, thumbnails, and a switch between versions such as slides and presenter notes.",
+  "version": "0.1.0",
+  "author": {
+    "name": "hyunhwan-bcm"
+  }
+}

@@ -1,0 +1,406 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700&family=Fira+Mono:wght@400&display=swap">
+<style>
+/* Layout: a projection room. One page on a stage, the PDF's bookmarks as a rail, every page as a strip below.
+   Neutral tokens; build_viewer.py writes the accent colours. */
+:root {
+  --paper: #F8F7F3;
+  --surface: #FFFFFF;
+  --stage: #E8E6E0;
+  --ink: #15181B;
+  --ink-2: #2B3036;
+  --muted: #5C636B;
+  --rule: #D3D1CB;
+  --accent: __ACCENT__;
+  --accent-ink: __ACCENT_INK__;
+  --accent-soft: __ACCENT_SOFT__;
+  --shadow: 0 1px 2px rgba(20, 22, 26, .10), 0 8px 28px rgba(20, 22, 26, .12);
+  --sans: "Fira Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Fira Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111315; --surface: #1A1D20; --stage: #08090A; --ink: #E9EBED; --ink-2: #C9CDD1;
+    --muted: #969CA3; --rule: #2C3035; --accent: __ACCENT_DARK__; --accent-ink: __ACCENT_DARK_INK__; --accent-soft: __ACCENT_DARK_SOFT__;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 32px rgba(0, 0, 0, .55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111315; --surface: #1A1D20; --stage: #08090A; --ink: #E9EBED; --ink-2: #C9CDD1;
+  --muted: #969CA3; --rule: #2C3035; --accent: __ACCENT_DARK__; --accent-ink: __ACCENT_DARK_INK__; --accent-soft: __ACCENT_DARK_SOFT__;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 32px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+body { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+.wrap {
+  max-width: 1280px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 28px;
+  display: grid; gap: 14px;
+}
+.wrap > * { min-width: 0; }
+
+/* top bar */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.name { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 260px; }
+.name h1 { margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em; }
+.name p { margin: 0; color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.seg[hidden] { display: none !important; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--surface); }
+.seg button {
+  font: 500 .85rem var(--sans); border: 0; background: transparent; color: var(--ink-2);
+  padding: 6px 14px; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.count { font-family: var(--mono); font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+button:focus-visible, .thumb:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* sections rail */
+.rail { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.chip {
+  flex: none; font: 500 .8rem var(--sans); color: var(--ink-2); background: transparent;
+  border: 1px solid var(--rule); border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+}
+.chip[aria-current="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* stage */
+.stage {
+  position: relative; background: var(--stage); border-radius: 10px;
+  display: grid; place-items: center; padding: clamp(8px, 2vw, 22px);
+  min-height: 220px; overflow: hidden; touch-action: pan-y;
+}
+.stage canvas { display: block; max-width: 100%; height: auto; background: #FFFFFF; box-shadow: var(--shadow); border-radius: 2px; }
+.status { color: var(--muted); font-size: .95rem; text-align: center; padding: 40px 10px; }
+.status.error { color: var(--ink); }
+.nav-btn {
+  position: absolute; top: 50%; translate: 0 -50%;
+  width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--rule);
+  background: var(--surface); color: var(--ink); cursor: pointer; box-shadow: var(--shadow);
+  display: grid; place-items: center; font-size: 1.1rem; opacity: .92;
+}
+.nav-btn:disabled { opacity: .35; cursor: default; }
+.prev { left: max(8px, env(safe-area-inset-left, 0px)); }
+.next { right: max(8px, env(safe-area-inset-right, 0px)); }
+.hint { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.hint kbd { font-family: var(--mono); font-size: .75rem; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--ink-2); }
+
+/* contact strip */
+.strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.strip-head h2 { margin: 0; font-size: .78rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.strip { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; }
+.thumb {
+  display: grid; gap: 4px; padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; color: var(--muted);
+  font: .72rem var(--mono); font-variant-numeric: tabular-nums;
+}
+.thumb .frame { aspect-ratio: 16 / 9; width: 100%; max-width: 100%; background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; display: grid; place-items: center; }
+.thumb canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+.thumb[aria-current="true"] .frame { border: 2px solid var(--accent); }
+.thumb[aria-current="true"] { color: var(--accent); }
+
+@media (max-width: 560px) {
+  .nav-btn { width: 36px; height: 36px; }
+  .strip { grid-auto-columns: 128px; }
+  .hint .keys { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage canvas { transition: opacity .12s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="name">
+      <h1>__HEADING__</h1>
+      <p>__SUBTITLE__</p>
+    </div>
+    <div class="seg" id="seg" role="group" aria-label="Version" hidden></div>
+    <span class="count" id="count" aria-live="polite">–</span>
+  </header>
+
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+
+  <main class="stage" id="stage">
+    <div class="status" id="status">Loading the PDF…</div>
+    <canvas id="page" hidden></canvas>
+    <button class="nav-btn prev" id="prev" type="button" aria-label="Previous page">&#8592;</button>
+    <button class="nav-btn next" id="next" type="button" aria-label="Next page">&#8594;</button>
+  </main>
+
+  <div class="hint">
+    <span id="section-name">&nbsp;</span>
+    <span class="keys"><kbd>&#8592;</kbd> <kbd>&#8594;</kbd> page &nbsp; <kbd>Home</kbd> <kbd>End</kbd> first, last</span>
+  </div>
+
+  <section>
+    <div class="strip-head">
+      <h2>All pages</h2>
+      <span class="count" id="strip-note"></span>
+    </div>
+    <div class="strip" id="strip"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>
+(function () {
+  // Written by build_viewer.py: [{ "label": "Slides", "file": "deck.pdf" }, ...]; the first is shown first.
+  const DOCS = __DOCS__;
+  const $ = (id) => document.getElementById(id);
+  const stage = $("stage"), canvas = $("page"), statusEl = $("status");
+  const docs = {};
+  let mode = 0, doc = null, n = 1, task = null, sections = [], thumbObserver = null;
+  let mainReady = false, queue = [], pumping = false;
+
+  if (!window.pdfjsLib) {
+    statusEl.textContent = "The PDF viewer did not load. Reload the page to try again.";
+    statusEl.classList.add("error");
+    return;
+  }
+  // The worker script is loaded above on the page itself, so PDF.js runs in this thread.
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  function loadDoc(which) {
+    if (!docs[which]) {
+      docs[which] = pdfjsLib.getDocument({
+        url: DOCS[which].file, isEvalSupported: false,
+        disableRange: true, disableStream: true
+      }).promise;
+    }
+    return docs[which];
+  }
+
+  function pageFromHash() {
+    const m = /^#page-(\d+)$/.exec(location.hash || "");
+    return m ? parseInt(m[1], 10) : 1;
+  }
+
+  async function readSections(d) {
+    const out = [];
+    let outline = [];
+    try { outline = (await d.getOutline()) || []; } catch (e) { outline = []; }
+    const flat = [];
+    (function walk(items) { for (const it of items) { flat.push(it); if (it.items && it.items.length) walk(it.items); } })(outline);
+    async function pageOf(it) {
+      let dest = it.dest;
+      if (typeof dest === "string") dest = await d.getDestination(dest);
+      if (!dest) return null;
+      return (await d.getPageIndex(dest[0])) + 1;
+    }
+    for (const it of flat) {
+      try {
+        const page = await pageOf(it);
+        if (!page) continue;
+        if (it.items && it.items.length && (await pageOf(it.items[0])) === page) continue;
+        out.push({ title: it.title.replace(/:.*$/, ""), full: it.title, page });
+      } catch (e) { /* skip unreadable entries */ }
+    }
+    out.sort((a, b) => a.page - b.page);
+    return out;
+  }
+
+  function buildRail() {
+    const rail = $("rail");
+    rail.textContent = "";
+    rail.hidden = !sections.length;
+    if (!sections.length) return;
+    const start = document.createElement("button");
+    start.className = "chip"; start.type = "button"; start.textContent = "Start";
+    start.addEventListener("click", () => go(1));
+    rail.appendChild(start);
+    for (const s of sections) {
+      const b = document.createElement("button");
+      b.className = "chip"; b.type = "button"; b.textContent = s.title; b.title = s.full;
+      b.addEventListener("click", () => go(s.page));
+      rail.appendChild(b);
+    }
+  }
+
+  function currentSection() {
+    let cur = null;
+    for (const s of sections) if (s.page <= n) cur = s;
+    return cur;
+  }
+
+  function scrollInto(box, el, center) {
+    const l = el.offsetLeft - box.offsetLeft, w = el.offsetWidth;
+    if (center) box.scrollLeft = l - (box.clientWidth - w) / 2;
+    else if (l < box.scrollLeft) box.scrollLeft = l - 8;
+    else if (l + w > box.scrollLeft + box.clientWidth) box.scrollLeft = l + w - box.clientWidth + 8;
+  }
+
+  function markCurrent() {
+    const cur = currentSection();
+    const chips = $("rail").querySelectorAll(".chip");
+    chips.forEach((c, i) => {
+      const isCur = i === 0 ? !cur : (cur && sections[i - 1] === cur);
+      c.setAttribute("aria-current", isCur ? "true" : "false");
+      if (isCur) scrollInto($("rail"), c, false);
+    });
+    $("section-name").textContent = cur ? cur.full : (sections.length ? "Start" : "");
+    $("strip").querySelectorAll(".thumb").forEach((t) => {
+      const on = Number(t.dataset.page) === n;
+      t.setAttribute("aria-current", on ? "true" : "false");
+      if (on) scrollInto($("strip"), t, true);
+    });
+  }
+
+  async function render() {
+    if (!doc) return;
+    const page = await doc.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const pad = parseFloat(getComputedStyle(stage).paddingLeft) * 2 || 0;
+    const availW = Math.max(200, stage.clientWidth - pad);
+    const availH = Math.max(200, window.innerHeight * 0.68);
+    const cssScale = Math.min(availW / base.width, availH / base.height);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const vp = page.getViewport({ scale: cssScale * dpr });
+    if (task) { try { task.cancel(); } catch (e) {} }
+    const off = document.createElement("canvas");
+    off.width = Math.floor(vp.width); off.height = Math.floor(vp.height);
+    task = page.render({ canvasContext: off.getContext("2d"), viewport: vp });
+    try { await task.promise; } catch (e) { if (e && e.name === "RenderingCancelledException") return; throw e; }
+    canvas.width = off.width; canvas.height = off.height;
+    canvas.style.width = Math.floor(base.width * cssScale) + "px";
+    canvas.getContext("2d").drawImage(off, 0, 0);
+    canvas.hidden = false; statusEl.hidden = true;
+    if (!mainReady) { mainReady = true; pump(); }
+  }
+
+  async function pump() {
+    if (pumping || !mainReady) return;
+    pumping = true;
+    while (queue.length) {
+      const el = queue.shift();
+      try { await drawThumb(el); } catch (e) { /* leave the frame empty */ }
+    }
+    pumping = false;
+  }
+
+  function update() {
+    $("count").textContent = "page " + n + " of " + doc.numPages;
+    $("prev").disabled = n <= 1;
+    $("next").disabled = n >= doc.numPages;
+    const h = "#page-" + n;
+    if (location.hash !== h) { try { history.replaceState(null, "", h); } catch (e) { location.hash = h; } }
+    markCurrent();
+    render().catch(showError);
+  }
+
+  function go(p) {
+    if (!doc) return;
+    n = Math.min(Math.max(1, p), doc.numPages);
+    update();
+  }
+
+  async function buildStrip() {
+    const first = (await doc.getPage(1)).getViewport({ scale: 1 });
+    const ratio = (first.width / first.height).toFixed(4);
+    const strip = $("strip");
+    strip.textContent = "";
+    queue = [];
+    if (thumbObserver) thumbObserver.disconnect();
+    thumbObserver = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const el = en.target;
+        thumbObserver.unobserve(el);
+        queue.push(el);
+      }
+      pump();
+    }, { root: strip, rootMargin: "0px 300px" });
+    for (let p = 1; p <= doc.numPages; p++) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "thumb";
+      b.dataset.page = p;
+      b.setAttribute("aria-label", "Go to page " + p);
+      const f = document.createElement("span"); f.className = "frame"; f.style.aspectRatio = ratio;
+      const lab = document.createElement("span"); lab.textContent = String(p);
+      b.append(f, lab);
+      b.addEventListener("click", () => go(p));
+      strip.appendChild(b);
+      thumbObserver.observe(b);
+    }
+    $("strip-note").textContent = doc.numPages + (doc.numPages === 1 ? " page" : " pages");
+  }
+
+  async function drawThumb(el) {
+    const d = doc, p = Number(el.dataset.page);
+    const page = await d.getPage(p);
+    const base = page.getViewport({ scale: 1 });
+    const frame = el.querySelector(".frame");
+    const w = (frame.clientWidth || 168) * Math.min(window.devicePixelRatio || 1, 2);
+    const vp = page.getViewport({ scale: w / base.width });
+    const c = document.createElement("canvas");
+    c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    if (d !== doc) return;
+    frame.textContent = ""; frame.appendChild(c);
+  }
+
+  function showError(e) {
+    statusEl.hidden = false; canvas.hidden = true;
+    statusEl.classList.add("error");
+    statusEl.textContent = "This page of the PDF could not be drawn (" + (e && e.message ? e.message : "unknown error") + "). Try another page or reload.";
+  }
+
+  function buildSeg() {
+    const seg = $("seg");
+    seg.textContent = "";
+    seg.hidden = DOCS.length < 2;
+    DOCS.forEach((d, i) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = d.label;
+      b.setAttribute("aria-pressed", i === mode ? "true" : "false");
+      b.addEventListener("click", () => { if (mode !== i) setMode(i); });
+      seg.appendChild(b);
+    });
+  }
+
+  async function setMode(m) {
+    mode = m;
+    $("seg").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", i === m ? "true" : "false"));
+    statusEl.hidden = false; statusEl.classList.remove("error");
+    statusEl.textContent = "Loading " + DOCS[m].label.toLowerCase() + "…";
+    try {
+      doc = await loadDoc(m);
+      if (!sections.length) { sections = await readSections(doc); buildRail(); }
+      await buildStrip();
+      go(Math.min(n, doc.numPages));
+    } catch (e) {
+      statusEl.hidden = false; canvas.hidden = true; statusEl.classList.add("error");
+      statusEl.textContent = "The PDF could not be loaded (" + (e && e.message ? e.message : "unknown error") + ").";
+    }
+  }
+
+  $("prev").addEventListener("click", () => go(n - 1));
+  $("next").addEventListener("click", () => go(n + 1));
+  document.addEventListener("keydown", (e) => {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); go(n + 1); }
+    else if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); go(n - 1); }
+    else if (e.key === "Home") { e.preventDefault(); go(1); }
+    else if (e.key === "End") { e.preventDefault(); go(doc ? doc.numPages : 1); }
+  });
+  let sx = null;
+  stage.addEventListener("pointerdown", (e) => { if (e.pointerType !== "mouse") sx = e.clientX; });
+  stage.addEventListener("pointerup", (e) => {
+    if (sx === null) return;
+    const dx = e.clientX - sx; sx = null;
+    if (Math.abs(dx) > 40) go(n + (dx < 0 ? 1 : -1));
+  });
+  window.addEventListener("hashchange", () => { const p = pageFromHash(); if (p !== n) go(p); });
+  let rt = null;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => render().catch(showError), 150); });
+
+  n = pageFromHash();
+  buildSeg();
+  setMode(0);
+})();
+</script>

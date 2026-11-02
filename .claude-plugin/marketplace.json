@@ -1,0 +1,14 @@
+{
+  "name": "hyunhwan-skills",
+  "description": "Claude Code skills by hyunhwan-bcm",
+  "owner": {
+    "name": "hyunhwan-bcm"
+  },
+  "plugins": [
+    {
+      "name": "pdf-viewer",
+      "source": "./plugins/pdf-viewer",
+      "description": "Publish a PDF (slides, a paper, a report) as a claude.ai Artifact page drawn with PDF.js"
+    }
+  ]
+}
